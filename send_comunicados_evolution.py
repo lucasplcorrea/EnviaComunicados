@@ -9,6 +9,7 @@ from datetime import datetime
 import mimetypes
 from dotenv import load_dotenv
 from status_manager import StatusManager
+import sys
 import shutil
 import json
 
@@ -20,8 +21,8 @@ logging.basicConfig(
     level=logging.INFO, 
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler(f'envio_comunicados_evolution_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'),
-        logging.StreamHandler()
+        logging.FileHandler(f'envio_comunicados_evolution_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log', encoding='utf-8'),
+        logging.StreamHandler(sys.stdout)
     ]
 )
 
@@ -271,28 +272,35 @@ class ComunicadosSenderEvolution:
         logging.info(f"Iniciando envio para {employee_name} (Setor: {setor}, Obra: {obra}) no número {formatted_phone}...")
 
         # Mensagem personalizada com informações do colaborador
-        personalized_message = f"Olá {employee_name}, {mensagem}"
+        personalized_message = f"{mensagem}"
         
-        self.status_manager.update_employee_status(unique_id, employee_name, formatted_phone, "processing", "Enviando mensagem")
-        
-        if not self.send_text_message(formatted_phone, personalized_message):
-            logging.error(f"Falha ao enviar mensagem para {employee_name}")
-            self.failed_employees.append({"nome": employee_name, "motivo": "Falha na mensagem"})
-            self.status_manager.update_employee_status(unique_id, employee_name, formatted_phone, "failed", "Falha na mensagem")
-            return False
+        # Enviar mensagem de texto se houver
+        if mensagem.strip():
+            self.status_manager.update_employee_status(unique_id, employee_name, formatted_phone, "processing", "Enviando mensagem")
+            if not self.send_text_message(formatted_phone, personalized_message):
+                logging.error(f"Falha ao enviar mensagem para {employee_name}")
+                self.failed_employees.append({"nome": employee_name, "motivo": "Falha na mensagem"})
+                self.status_manager.update_employee_status(unique_id, employee_name, formatted_phone, "failed", "Falha na mensagem")
+                return False
+            # Delay entre mensagem e arquivo, se ambos existirem
+            if comunicado_path and os.path.exists(comunicado_path):
+                self.add_random_delay(20, 8)
 
-        # Delay entre mensagem e arquivo
-        self.add_random_delay(20, 8)
-
-        # Envio do comunicado
-        self.status_manager.update_employee_status(unique_id, employee_name, formatted_phone, "processing", "Enviando comunicado")
+        # Envio do comunicado (arquivo) se houver
+        if comunicado_path and os.path.exists(comunicado_path):
+            self.status_manager.update_employee_status(unique_id, employee_name, formatted_phone, "processing", "Enviando comunicado")
+            filename = os.path.basename(comunicado_path)
+            if not self.send_media_message(formatted_phone, comunicado_path, filename, caption=personalized_message if not (mensagem and mensagem.strip()) else None):
+                logging.error(f"Falha ao enviar comunicado para {employee_name}")
+                self.failed_employees.append({"nome": employee_name, "motivo": "Falha no envio do comunicado"})
+                self.status_manager.update_employee_status(unique_id, employee_name, formatted_phone, "failed", "Falha no envio do comunicado")
+                return False
         
-        filename = os.path.basename(comunicado_path)
-        
-        if not self.send_media_message(formatted_phone, comunicado_path, filename):
-            logging.error(f"Falha ao enviar comunicado para {employee_name}")
-            self.failed_employees.append({"nome": employee_name, "motivo": "Falha no envio do comunicado"})
-            self.status_manager.update_employee_status(unique_id, employee_name, formatted_phone, "failed", "Falha no envio do comunicado")
+        # Se nem mensagem nem comunicado foram enviados, é um erro
+        if not mensagem.strip() and (not comunicado_path or not os.path.exists(comunicado_path)):
+            logging.error(f"Nenhuma mensagem ou comunicado para enviar para {employee_name}")
+            self.failed_employees.append({"nome": employee_name, "motivo": "Nenhum conteúdo para enviar"})
+            self.status_manager.update_employee_status(unique_id, employee_name, formatted_phone, "failed", "Nenhum conteúdo para enviar")
             return False
 
         self.success_count += 1
@@ -316,8 +324,8 @@ class ComunicadosSenderEvolution:
             logging.error("Instância não está conectada. Abortando envio.")
             return
         
-        # Verificar se o arquivo de comunicado existe
-        if not os.path.exists(comunicado_path):
+        # Verificar se o arquivo de comunicado existe, se um caminho foi fornecido
+        if comunicado_path and not os.path.exists(comunicado_path):
             logging.error(f"Arquivo de comunicado não encontrado: {comunicado_path}")
             return
 
@@ -421,4 +429,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

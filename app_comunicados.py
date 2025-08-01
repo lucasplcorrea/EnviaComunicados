@@ -115,7 +115,7 @@ st.markdown("---")
 st.subheader("👥 Gerenciamento de Colaboradores")
 
 # Tabs para diferentes funcionalidades
-tab1, tab2, tab3 = st.tabs(["📋 Visualizar Colaboradores", "➕ Adicionar/Editar", "📊 Upload de Planilha"])
+tab1, tab2, tab3 = st.tabs(["📋 Visualizar Colaboradores", "➕ Adicionar", "📊 Upload de Planilha"])
 
 with tab1:
     st.markdown("### Lista de Colaboradores")
@@ -148,10 +148,10 @@ with tab1:
         st.info(f"Total de colaboradores: {len(filtered_df)}")
         
     else:
-        st.warning("Nenhum colaborador cadastrado. Use a aba 'Adicionar/Editar' ou 'Upload de Planilha' para adicionar colaboradores.")
+        st.warning("Nenhum colaborador cadastrado. Use a aba 'Adicionar' ou 'Upload de Planilha' para adicionar colaboradores.")
 
 with tab2:
-    st.markdown("### Adicionar/Editar Colaboradores")
+    st.markdown("### Adicionar Colaboradores")
     
     # Formulário para adicionar colaborador
     with st.form("add_colaborador"):
@@ -328,18 +328,16 @@ if st.button(
     # Validações
     if status_manager.is_running():
         st.error("❌ Já existe uma execução em andamento. Aguarde a conclusão.")
-    elif not comunicado_path or not os.path.exists(comunicado_path):
-        st.error("❌ Nenhum arquivo de comunicado foi enviado.")
+    elif not comunicado_path and not mensagem_comunicado.strip():
+        st.error("❌ Digite uma mensagem ou faça upload de um arquivo para enviar.")
     elif df_colaboradores is None or selected_colaboradores.empty:
         st.error("❌ Nenhum colaborador foi selecionado.")
-    elif not mensagem_comunicado.strip():
-        st.error("❌ Digite uma mensagem para acompanhar o comunicado.")
     else:
         # Salvar dados temporários para o script de envio
         temp_data = {
             'colaboradores': selected_colaboradores.to_dict('records'),
-            'comunicado_path': comunicado_path,
-            'mensagem': mensagem_comunicado.strip()
+            'comunicado_path': comunicado_path if comunicado_path and os.path.exists(comunicado_path) else None,
+            'mensagem': mensagem_comunicado.strip() if mensagem_comunicado.strip() else None
         }
         
         import json
@@ -412,4 +410,3 @@ with st.expander("📄 Ver arquivos de comunicado enviados"):
             st.text(f)
     else:
         st.info("Nenhum arquivo de comunicado enviado ainda.")
-

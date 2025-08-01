@@ -153,4 +153,3 @@ class StatusManager:
             if os.path.exists(self.status_file):
                 os.remove(self.status_file)
             self._initialize_status()
-
