@@ -179,3 +179,9 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+#Arquivos pessoas ignorados
+colaboradores
+enviados_comunicados
+uploads_comunicados
+comunicados_status.json
